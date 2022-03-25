@@ -1,0 +1,216 @@
+---
+title: "UPDx Analysis Report"
+author: "UPDx Team"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+##################################### This Chunk determine the setups that will apply to the whole file
+knitr::opts_chunk$set(echo = TRUE)
+##### Package required ########
+library(tinytex)
+library(kableExtra)
+library(knitr)
+library(stringr)
+library(dplyr)
+library(readr)
+library(tibble)
+```
+
+
+# UPDx Analysis, `r Sys.Date()`
+
+```{r, include=FALSE}
+########################################## PRINT SAMPLES NAME
+samples <- scan("../samples.txt", what="character")
+sample_number <- length(samples)
+```
+
+## 1. Samples analyzed: `r sample_number`
+
+
+
+```{r, echo=FALSE}
+########################################## PRINT SAMPLES NAME
+samples <- scan("../samples.txt", what="character")
+sampli <- c()
+for (i in samples){
+  sampli <- append(sampli, i)
+}
+sampli <- str_sort(sampli, numeric = TRUE)
+cat(sampli,fill=2)
+```
+
+
+
+## 2. Analysis Summary:
+
+
+```{r, include=FALSE}
+Taxo_table <- read.delim("../5_Blastn_Output/AllAsvSequenceTaxonomyMetrics.csv")
+Taxo_table1 <- as.data.frame(Taxo_table)
+#### subset according to samples et counts
+subc_nb <- length(unique(Taxo_table1$Sample))
+Count_table <- as.data.frame(matrix(nrow = subc_nb, ncol = 5))
+colnames(Count_table) <- c("Sample", "Total reads", "Unique ASV","Positive ASV","Parasitic ASV")
+sampli <- unique(Taxo_table1$Sample)
+for (i in sampli) {
+  Count_table[i, 1] <- i
+  subseti <- subset(Taxo_table1, Taxo_table1$Sample == i)
+  tot_read <- unique(subseti$Tot_reads)
+  Count_table[i, 2] <- tot_read
+  unique_reads <- nrow(subseti)
+  Count_table[i, 3] <- unique_reads
+  Pos_subseti <- subset(subseti, subseti$Results=="POSITIVE")
+  positive_reads <- nrow(Pos_subseti)
+  Count_table[i, 4] <- positive_reads
+  Pos_subsetii <- Pos_subseti %>% filter(!grepl("Chordata", Full_taxonomy))
+  Pos_subsetii <- Pos_subsetii %>% filter(!grepl("Fungus", Full_taxonomy))
+   Pos_subsetii <- Pos_subsetii %>% filter(!grepl("Fungi", Full_taxonomy))
+  Pos_subsetii <- Pos_subsetii %>% filter(!grepl("synthetic", Full_taxonomy))
+  Pos_subsetii <- Pos_subsetii %>% filter(!grepl("Bacteria", Full_taxonomy))
+  Pos_subsetii <- Pos_subsetii %>% filter(!grepl("Virus", Full_taxonomy))
+  Pos_subsetii <- Pos_subsetii %>% filter(!grepl("Plantae", Full_taxonomy))
+  Pos_subsetii <- Pos_subsetii %>% filter(!grepl("Viridiplantae", Full_taxonomy))
+  Pos_subsetii <- Pos_subsetii %>% filter(!grepl("uncultured_eukaryote", Full_taxonomy))
+  dd <- Pos_subsetii[grepl("Arthropoda[d+]Ixodida", Pos_subsetii$Full_taxonomy), ]
+   dd
+   if (dd <- FALSE) {
+   Pos_subsetii <- Pos_subsetii %>% filter(!grepl("Arthropoda", Full_taxonomy))
+   }
+   
+  parasite_reads <- nrow(Pos_subsetii)
+  Count_table[i, 5] <- parasite_reads
+}
+Count_table <- na.omit(Count_table)
+Count_table <- remove_rownames(Count_table)
+Count_table <- knitr::kable(Count_table, row.names=FALSE, caption = "Summary", booktabs = TRUE, longtable = TRUE) %>% kable_styling(font_size=10,  latex_options = c("striped", "repeat_header", "scale_down")) 
+
+
+```
+
+`r Count_table`
+
+ASV = Amplicon Sequence Variant (we can also used "contig").
+
+*"Total reads"* = Number of reads left after the trimming, filtering and merging steps.
+
+*"Unique ASV"*= Number of unique sequence in one sample.
+
+*"Positive ASV"*= Among the unique sequence, proportion of sequences considered as "positive", with a count number above the Cutoff of the study (see Cutoff explanation page 2) . 
+
+*"Parasitic ASV"*= Among the unique and positive sequence, number of sequence belonging to a parasitic organism.
+
+
+\newpage
+
+
+## 3. Parasite detected
+
+
+
+**Table 2. "Taxonomy of the UPDx parasitic sequences"**
+
+This table present the number of parasitic sequence detected - called ASV (Amplicon Sequence Variant) - in each sample analyzed, with the number of reads corresponding to the sequence, the positivity cutoff (*) applied to the study and the taxonomic identification of the sequence.
+
+Nb: In the case of tick sample analysis or Babesia sp. detection, as some Babesia sp. sequence are misidentified as tick sequences in reference database (such as NCBI), in case of negative results be carefull to check all the sequences obtained from the sample (see Table 3 "Taxonomy of the UPDx sequences").
+
+***
+
+(*) Cutoff = Determination of the positivity threshold (number of reads required)
+
+* Cutoff Minimum = Cutoff minimum of 20 reads, determined during the validation study of UPDx protocol (Flaherty et al., 2018), applicable to every sequencing run. In this case, an ASV will be considered positively detected if more than 20 reads correspond to the ASV sequence.
+
+* Cutoff Maximum (sliding cutoff) = This cutoff will be specific to each sequencing run, formula determined during the validation study of UPDx protocol (Flaherty et al., 2018). In this case, an ASV will be considered positively detected if the number of reads corresponding to the ASV sequence is superior to the maximum cutoff.
+
+Formula = [ ( ucontamin_run ) + x ( S.D. ) ] * Sreads = Cutoffmax
+
+
+ucontamin_run : mean proportion of contaminating reads in negative blood samples in the particular run.
+
+x : number of negative control analyzed ( at least three).
+
+S.D. : standard deviation of the proportion of contaminating reads in negative blood samples in the particular run.
+
+Sreads : the number of reads sequenced for the sample. 
+
+* Interpretation=
+
+if Cutoff min > Cutoff max = Cutoff minimum of 20 reads is applied.
+
+if Cutoff min < Cutoff max = Cutoff maximum is applied.
+
+***
+
+```{r, include=FALSE}
+Taxo_table <- read.delim("../5_Blastn_Output/ParasiticAsvSequenceTaxonomyMetrics.csv")
+Taxo_table1 <- as.data.frame(Taxo_table) 
+Taxo_table4 <- Taxo_table1[,c(3,4,5,7,8,9,1,10,22,23)]
+Taxo_table5 <-Taxo_table4[order(Taxo_table4$Sample, Taxo_table4$Reads_number, decreasing = TRUE),]
+Taxo_table5 <- Taxo_table5[,-9]
+names(Taxo_table5)[9] <- "Taxonomic identification"
+names(Taxo_table5)[7] <- "Sequence"
+Taxo_table5 <- remove_rownames(Taxo_table5)
+Taxo_table5 <- knitr::kable(Taxo_table5, row.names=FALSE, caption = "Taxonomy of the UPDx parasitic sequences", booktabs = TRUE, longtable = TRUE) %>% kable_styling(font_size=10,  latex_options = c("hold_position", "striped", "repeat_header", "scale_down")) %>% landscape()
+
+
+
+```
+
+
+`r Taxo_table5`
+
+
+
+\newpage
+
+## 4. Phylogeny of the parasitic sequences
+
+
+Phylogenetic analysis=
+
+Alignment of ASVs sequences with a reference database including 250 reference sequences of 18S rRNA genes and phylogenetical analysis of each ASV of each sample.
+
+
+Each figures represent the phylogenetical analysis of the ASVs of one sample.
+
+
+\newpage
+
+
+```{r echo=FALSE, include=TRUE, out.width = "100%", fig.cap=c("Phylogeny of the UPDx parasitic sequences")}
+setwd("../6_Phylo_Output")
+figures <- list.files(path=getwd(), pattern= "Subtrees_*", full.names = TRUE)
+knitr::include_graphics(figures)
+```
+
+
+\newpage
+
+## 5. Global taxonomic information
+
+
+**Table 3. "Taxonomy of the UPDx sequences"**
+
+This table present the number of sequence detected - called ASV (Amplicon Sequence Variant) - in each sample analyzed, with the number of reads corresponding to the sequence, the positivity cutoff (*) applied to the study and the taxonomic identification of the sequence.
+Here all the ASVs are reported, not only the positive one and not only the parasitic one.
+
+
+```{r, include=FALSE}
+setwd("../5_Blastn_Output")
+Taxo_table <- read.delim("../5_Blastn_Output/AllAsvSequenceTaxonomyMetrics.csv")
+Taxo_table1 <- as.data.frame(Taxo_table)
+Taxo_table2 <- Taxo_table1[,c(3,4,5,7,8,9,1,10,22,23)]
+Taxo_tableglobal <- Taxo_table2
+Taxo_tableglobal <-Taxo_tableglobal[order(Taxo_tableglobal$Sample, Taxo_tableglobal$Reads_number, decreasing = TRUE),]
+Taxo_tableglobal <- Taxo_tableglobal[,-9]
+names(Taxo_tableglobal)[9] <- "Organism"
+names(Taxo_tableglobal)[7] <- "Sequence"
+names(Taxo_tableglobal)[2] <- "Reads"
+names(Taxo_tableglobal)[5] <- "Cutoff"
+Taxo_tableglobal <- knitr::kable(Taxo_tableglobal, row.names=FALSE, caption = "Taxonomy of the UPDx sequences", booktabs = TRUE, longtable = TRUE) %>% kable_styling(font_size=10,  latex_options = c("hold_position","striped", "repeat_header", "scale_down")) %>% landscape()
+
+```
+
+
+`r Taxo_tableglobal`
